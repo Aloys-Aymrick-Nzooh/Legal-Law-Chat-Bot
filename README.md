@@ -17,20 +17,43 @@ A legal document chatbot with conversation-specific GraphRAG knowledge bases.
 
 ## Quick Start
 
-1. From the OpenAI API site, create an OPEN AI KEY and Create a .env environment file to store the following variables: 
-- **OPENAI_API_KEY** = .......
-- **OPENAI_MODE**L=gpt-4o
-- **OPENAI_EMBEDDING_MODEL**=text-embedding-3-small
-- **OPENAI_BASE_URL**= https://api.openai.com/v1
-- **DATABASE_UR** = postgresql://... |
+### Setup
 
- 
+1. **Create `.env` file**:
+   - Copy `backend/.env.example` to `backend/.env`
+   - Edit `backend/.env` and add your actual values:
+     ```
+     OPENAI_API_KEY=sk-your-actual-key-here
+     OPENAI_MODEL=gpt-4o
+     OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
+     DATABASE_URL=postgresql://postgres:postgres@localhost:5432/legal_chatbot
+     GRAPHRAG_DATA_DIR=./graphrag_data
+     ```
+
+### Run with Docker Compose
+
 2. **Start the application**:
    ```bash
-   docker-compose up -d
+   docker-compose up --build
    ```
 
 3. **Access the chat**: Open `http://localhost:8000`
+
+### Run from Docker Repository
+
+Alternatively, run directly from the Docker Hub repository:
+
+```bash
+docker run -d \
+  --name legal-chatbot \
+  -p 8000:8000 \
+  -e OPENAI_API_KEY=sk-your-key \
+  -v ./data:/app/graphrag_data \
+  aymrick2803/legal-law-chatbot:latest
+```
+
+**Note**: Make sure required services are running:
+- PostgreSQL on `localhost:5432`
 
 ## Project Structure
 
