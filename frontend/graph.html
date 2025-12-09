@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Graph Viewer</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a202c;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%);
+            padding: 15px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        #header h1 {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #header a {
+            color: #a0aec0;
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        #header a:hover { color: #fff; }
+        
+        #main {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        
+        #sidebar {
+            width: 320px;
+            background: #2d3748;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #4a5568;
+        }
+        
+        #graph-container {
+            flex: 1;
+            background: #1a202c;
+            position: relative;
+        }
+        
+        #graph {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .section {
+            background: #1a202c;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .section h3 {
+            color: #4299e1;
+            font-size: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #4a5568;
+            border-radius: 6px;
+            background: #2d3748;
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            transition: background 0.2s;
+        }
+        
+        button:hover { background: #3182ce; }
+        button:disabled { background: #4a5568; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background: #4a5568;
+        }
+        .btn-secondary:hover { background: #5a6578; }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .stat-item {
+            background: #2d3748;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #48bb78;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #a0aec0;
+            margin-top: 4px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            font-size: 13px;
+        }
+        
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .legend-count {
+            margin-left: auto;
+            background: #4a5568;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+        
+        #node-details {
+            display: none;
+        }
+        
+        #node-details.active {
+            display: block;
+        }
+        
+        #node-details h4 {
+            color: #48bb78;
+            font-size: 16px;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+        
+        #node-details p {
+            font-size: 13px;
+            color: #a0aec0;
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+        
+        #node-details strong {
+            color: #fff;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #4a5568;
+            border-top-color: #4299e1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fc8181;
+            color: #742a2a;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #a0aec0;
+        }
+        
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1> Knowledge Graph Viewer</h1>
+        <a href="/">← Back to Chat</a>
+    </div>
+    
+    <div id="main">
+        <div id="sidebar">
+            <!-- Conversation Selector -->
+            <div class="section">
+                <h3> Select Conversation</h3>
+                <select id="conversation-select">
+                    <option value="">Loading conversations...</option>
+                </select>
+                <button onclick="loadGraph()" id="load-btn" disabled>Load Knowledge Graph</button>
+            </div>
+            
+            <!-- Stats -->
+            <div class="section" id="stats-section" style="display: none;">
+                <h3> Statistics</h3>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-nodes">0</div>
+                        <div class="stat-label">Entities</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="stat-edges">0</div>
+                        <div class="stat-label">Relationships</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="section" id="search-section" style="display: none;">
+                <h3> Search</h3>
+                <input type="text" id="search-input" placeholder="Search entities..." onkeyup="searchNodes()">
+                <button class="btn-secondary" onclick="resetView()">Reset View</button>
+            </div>
+            
+            <!-- Legend -->
+            <div class="section" id="legend-section" style="display: none;">
+                <h3> Entity Types</h3>
+                <div id="legend-items"></div>
+            </div>
+            
+            <!-- Selected Node -->
+            <div class="section" id="node-details">
+                <h3> Selected Entity</h3>
+                <h4 id="detail-name"></h4>
+                <p><strong>Type:</strong> <span id="detail-type"></span></p>
+                <p><strong>Description:</strong></p>
+                <p id="detail-description"></p>
+            </div>
+        </div>
+        
+        <div id="graph-container">
+            <div id="graph"></div>
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Loading knowledge graph...</p>
+            </div>
+            <div class="empty-state" id="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <h3>Select a Conversation</h3>
+                <p>Choose an indexed conversation to view its knowledge graph</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let network = null;
+        let nodesDataset = null;
+        let edgesDataset = null;
+        
+        const entityColors = {
+            "PERSON": "#48bb78",
+            "ORGANIZATION": "#4299e1",
+            "LOCATION": "#ed8936",
+            "DATE": "#f56565",
+            "MONEY": "#ecc94b",
+            "DOCUMENT": "#9f7aea",
+            "CLAUSE": "#38b2ac",
+            "OBLIGATION": "#fc8181",
+            "TERM": "#b794f4",
+            "EVENT": "#f687b3",
+            "LAW": "#667eea",
+            "CONTRACT": "#9f7aea",
+            "PARTY": "#48bb78",
+            "SECTION": "#38b2ac",
+        };
+        
+        // Load conversations on page load
+        document.addEventListener('DOMContentLoaded', loadConversations);
+        
+        async function loadConversations() {
+            try {
+                const response = await fetch('/api/conversations');
+                const conversations = await response.json();
+                
+                const select = document.getElementById('conversation-select');
+                select.innerHTML = '<option value="">Select a conversation...</option>';
+                
+                conversations.forEach(conv => {
+                    const option = document.createElement('option');
+                    option.value = conv.id;
+                    option.textContent = `${conv.title} ${conv.is_indexed ? '✓' : '(not indexed)'}`;
+                    option.disabled = !conv.is_indexed;
+                    select.appendChild(option);
+                });
+                
+                select.addEventListener('change', () => {
+                    document.getElementById('load-btn').disabled = !select.value;
+                });
+                
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+                document.getElementById('conversation-select').innerHTML = 
+                    '<option value="">Error loading conversations</option>';
+            }
+        }
+        
+        async function loadGraph() {
+            const conversationId = document.getElementById('conversation-select').value;
+            if (!conversationId) return;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('graph').style.display = 'none';
+            
+            try {
+                const response = await fetch(`/api/graph/${conversationId}/data`);
+                if (!response.ok) {
+                    throw new Error('Failed to load graph data');
+                }
+                
+                const data = await response.json();
+                renderGraph(data);
+                updateStats(data.stats);
+                updateLegend(data.stats.entity_types);
+                
+                document.getElementById('stats-section').style.display = 'block';
+                document.getElementById('search-section').style.display = 'block';
+                document.getElementById('legend-section').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                alert('Failed to load knowledge graph. Make sure the conversation has been indexed.');
+                document.getElementById('empty-state').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function renderGraph(data) {
+            const container = document.getElementById('graph');
+            container.style.display = 'block';
+            
+            // Convert to vis.js format
+            const nodes = data.nodes.map(node => ({
+                id: node.id,
+                label: node.label,
+                title: `<b>${node.label}</b><br>Type: ${node.type}<br>${node.description || ''}`,
+                color: node.color || entityColors[node.type.toUpperCase()] || '#a0aec0',
+                shape: 'dot',
+                size: 20,
+                font: { size: 12, color: '#fff' },
+                _type: node.type,
+                _description: node.description
+            }));
+            
+            const edges = data.edges.map(edge => ({
+                from: edge.source,
+                to: edge.target,
+                label: edge.label,
+                title: edge.description,
+                arrows: 'to',
+                color: { color: '#666', highlight: '#4299e1' },
+                width: Math.min(Math.max(edge.weight || 1, 1), 5),
+                font: { size: 10, color: '#a0aec0', strokeWidth: 0 }
+            }));
+            
+            nodesDataset = new vis.DataSet(nodes);
+            edgesDataset = new vis.DataSet(edges);
+            
+            const options = {
+                nodes: {
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    smooth: { type: 'continuous' }
+                },
+                physics: {
+                    stabilization: { iterations: 150 },
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        springLength: 150,
+                        springConstant: 0.04
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    hideEdgesOnDrag: true
+                }
+            };
+            
+            network = new vis.Network(container, { nodes: nodesDataset, edges: edgesDataset }, options);
+            
+            // Node click handler
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    const node = nodesDataset.get(nodeId);
+                    showNodeDetails(node);
+                } else {
+                    document.getElementById('node-details').classList.remove('active');
+                }
+            });
+        }
+        
+        function showNodeDetails(node) {
+            document.getElementById('detail-name').textContent = node.label;
+            document.getElementById('detail-type').textContent = node._type || 'Unknown';
+            document.getElementById('detail-description').textContent = node._description || 'No description available';
+            document.getElementById('node-details').classList.add('active');
+        }
+        
+        function updateStats(stats) {
+            document.getElementById('stat-nodes').textContent = stats.total_entities;
+            document.getElementById('stat-edges').textContent = stats.total_relationships;
+
+        }
+        
+        function updateLegend(entityTypes) {
+            const container = document.getElementById('legend-items');
+            container.innerHTML = '';
+            
+            Object.entries(entityTypes)
+                .sort((a, b) => b[1] - a[1])
+                .forEach(([type, count]) => {
+                    const color = entityColors[type.toUpperCase()] || '#a0aec0';
+                    container.innerHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: ${color}"></div>
+                            <span>${type}</span>
+                            <span class="legend-count">${count}</span>
+                        </div>
+                    `;
+                });
+        }
+        
+        function searchNodes() {
+            if (!nodesDataset) return;
+            
+            const query = document.getElementById('search-input').value.toLowerCase();
+            
+            nodesDataset.forEach(node => {
+                const matches = node.label.toLowerCase().includes(query) ||
+                               (node._type || '').toLowerCase().includes(query) ||
+                               (node._description || '').toLowerCase().includes(query);
+                
+                nodesDataset.update({
+                    id: node.id,
+                    opacity: query === '' || matches ? 1 : 0.15,
+                    font: { color: query === '' || matches ? '#fff' : '#666' }
+                });
+            });
+        }
+        
+        function resetView() {
+            document.getElementById('search-input').value = '';
+            
+            if (nodesDataset) {
+                nodesDataset.forEach(node => {
+                    nodesDataset.update({
+                        id: node.id,
+                        opacity: 1,
+                        font: { color: '#fff' }
+                    });
+                });
+            }
+            
+            if (network) {
+                network.fit();
+            }
+        }
+    </script>
+</body>
+</html>
