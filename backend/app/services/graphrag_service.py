@@ -308,7 +308,7 @@ class GraphRAGService:
         output_dir = self.get_output_dir(conversation_id)
 
         # Check if index exists
-        artifacts_dir = output_dir / "artifacts"
+        artifacts_dir = output_dir 
         if not artifacts_dir.exists():
             print(" No GraphRAG index found. Please build index first.")
             return None
@@ -335,6 +335,7 @@ class GraphRAGService:
         try:
             process = await asyncio.create_subprocess_exec(
                 "graphrag", "query",
+                "--config", str(conv_dir / "settings.yaml"),
                 "--root", str(conv_dir),
                 "--method", method,
                 "--query", query,
