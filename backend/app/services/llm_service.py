@@ -5,13 +5,12 @@ from openai import AsyncOpenAI
 
 from app.config import get_settings
 
-settings = get_settings()
-
 
 class LLMService:
     """Service for interacting with OpenAI LLM."""
     
     def __init__(self):
+        settings = get_settings()
         if not settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required")
         
@@ -221,11 +220,31 @@ class LLMService:
         return {
             "provider": "openai",
             "model": self.model,
-            "base_url": settings.openai_base_url
+            "base_url": self.client.base_url
         }
 
 
-# Singleton instance
-llm_service = LLMService()
+# Lazy singleton pattern
+_llm_service_instance: Optional[LLMService] = None
 
 
+def get_llm_service() -> LLMService:
+    """Get or create the LLMService singleton instance."""
+    global _llm_service_instance
+    if _llm_service_instance is None:
+        _llm_service_instance = LLMService()
+    return _llm_service_instance
+
+
+# For backward compatibility, create a property-like access
+class _LLMServiceProxy:
+    """Proxy to provide lazy singleton access."""
+    
+    def __getattr__(self, name):
+        return getattr(get_llm_service(), name)
+    
+    def __call__(self, *args, **kwargs):
+        return get_llm_service()(*args, **kwargs)
+
+
+llm_service = _LLMServiceProxy()
